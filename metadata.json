@@ -1,0 +1,6 @@
+{
+  "name": "AuditIQ - POC Step 1",
+  "description": "External audit automation platform POC Step 1: Data Ingestion, synthetic data generation, and schema validation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
