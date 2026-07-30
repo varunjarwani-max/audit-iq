@@ -31,28 +31,28 @@ const FILES: FileDefinition[] = [
     filename: 'requirements.txt',
     language: 'plaintext',
     content: REQUIREMENTS_TXT,
-    description: 'Python dependencies required for Streamlit app and Pandas data processing.',
+    description: 'Python dependencies required for Streamlit app, Pandas, Scikit-Learn (IsolationForest), and NumPy.',
     badge: 'Dependencies'
   },
   {
     filename: 'generate_data.py',
     language: 'python',
     content: GENERATE_DATA_PY,
-    description: 'Generates synthetic dataset of 75-100 audit transactions with 4 deliberately planted anomalies.',
+    description: 'Generates synthetic dataset of 75-100 audit transactions with 4 planted anomalies.',
     badge: 'Synthetic Data Script'
   },
   {
     filename: 'app.py',
     language: 'python',
     content: APP_PY,
-    description: 'Streamlit application with wide layout, file uploader, and strict schema validator.',
-    badge: 'Streamlit Web Application'
+    description: 'Streamlit app featuring schema validation, IsolationForest ML outlier detection, and 4 rule-based audit checks.',
+    badge: 'Streamlit Application (Step 2)'
   },
   {
     filename: 'audit_sample_data.csv',
     language: 'csv',
     content: AUDIT_SAMPLE_DATA_CSV,
-    description: 'Generated synthetic dataset containing 90 audit transactions with 4 planted anomalies.',
+    description: 'Generated synthetic dataset containing 90 audit transactions with planted anomalies.',
     badge: 'Sample Dataset'
   }
 ];
@@ -94,13 +94,13 @@ export function CodeAndFilesExporter() {
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1">
             <Code2 className="w-4 h-4" />
-            POC Step 1 Source Files
+            POC Step 2 Source Files
           </div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
             Source Code &amp; Data Exporter
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
-            Inspect, copy, or download all 4 generated project files for pushing to GitHub and local execution in VS Code.
+            Inspect, copy, or download all updated Step 2 project files for pushing to GitHub and local execution in VS Code.
           </p>
         </div>
 

@@ -1,134 +1,136 @@
 import React, { useState } from 'react';
-import { Terminal, Copy, Check, ExternalLink, GitBranch, Play, ShieldAlert, FileCheck2 } from 'lucide-react';
+import { 
+  Terminal, 
+  Check, 
+  Copy, 
+  Laptop, 
+  FolderGit2, 
+  GitBranch, 
+  Play, 
+  Sparkles,
+  ExternalLink,
+  ShieldCheck,
+  Cpu
+} from 'lucide-react';
 
 export function VSCodeSetupGuide() {
-  const [copiedStep, setCopiedStep] = useState<string | null>(null);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-  const copyCommand = (cmd: string, key: string) => {
-    navigator.clipboard.writeText(cmd);
-    setCopiedStep(key);
-    setTimeout(() => setCopiedStep(null), 2000);
+  const copyToClipboard = (text: string, index: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
   };
+
+  const steps = [
+    {
+      title: "1. Update Local Repository & Install Dependencies",
+      description: "Install or update required packages including scikit-learn and numpy for Step 2 anomaly detection.",
+      command: `pip install -r requirements.txt`,
+      explanation: "Installs Streamlit, Pandas, Scikit-Learn (IsolationForest), and NumPy."
+    },
+    {
+      title: "2. Generate Synthetic Dataset with Planted Anomalies",
+      description: "Run the Python script to build audit_sample_data.csv featuring 90 transactions and 4 deliberate anomalies.",
+      command: `python generate_data.py`,
+      explanation: "Creates audit_sample_data.csv with duplicate payments, large round amounts, weekend dates, and missing approvers."
+    },
+    {
+      title: "3. Launch AuditIQ Step 2 Streamlit App",
+      description: "Execute Streamlit to start the interactive anomaly detection web application on localhost.",
+      command: `streamlit run app.py`,
+      explanation: "Opens AuditIQ Step 2 on http://localhost:8501 with ML outlier detection & rule-based checks."
+    }
+  ];
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Title */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-2xs">
-        <div className="flex items-center gap-2 text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider mb-1">
-          <Terminal className="w-4 h-4" />
-          VS Code &amp; GitHub Setup Guide
-        </div>
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-          How to Run AuditIQ - POC Step 1 Locally
-        </h2>
-        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
-          Follow these 3 simple commands to run the Streamlit app and generate synthetic data on your machine.
-        </p>
-      </div>
-
-      {/* Step by Step Execution Card */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Step 1 */}
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 font-bold flex items-center justify-center text-sm mb-3">
-              1
+      {/* Overview Banner */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-6 sm:p-8 shadow-xl border border-slate-800">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/20 text-red-300 text-xs font-semibold uppercase tracking-wider border border-red-500/30">
+              <Laptop className="w-3.5 h-3.5" />
+              Local VS Code &amp; GitHub Setup
             </div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Install Dependencies
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-4">
-              Install Streamlit and Pandas listed in <code className="font-mono bg-slate-100 dark:bg-slate-700 px-1 py-0.5 rounded">requirements.txt</code>.
+            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+              Running AuditIQ Step 2 Locally
+            </h2>
+            <p className="text-sm text-slate-300 max-w-2xl leading-relaxed">
+              Follow these simple terminal commands to run the updated Step 2 Anomaly Detection Pipeline directly in VS Code.
             </p>
           </div>
 
-          <div className="bg-slate-900 rounded-lg p-3 font-mono text-xs text-emerald-400 flex items-center justify-between gap-2 border border-slate-800">
-            <code>pip install -r requirements.txt</code>
-            <button
-              onClick={() => copyCommand('pip install -r requirements.txt', 'step1')}
-              className="text-slate-400 hover:text-white transition-colors"
-            >
-              {copiedStep === 'step1' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Step 2 */}
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 font-bold flex items-center justify-center text-sm mb-3">
-              2
+          <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700 text-xs space-y-1.5 shrink-0">
+            <div className="font-bold text-slate-200 flex items-center gap-1.5">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              Step 2 Verification Status
             </div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Generate Synthetic Dataset
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-4">
-              Executes Python script to generate <code className="font-mono bg-slate-100 dark:bg-slate-700 px-1 py-0.5 rounded">audit_sample_data.csv</code> with 4 planted anomalies.
-            </p>
-          </div>
-
-          <div className="bg-slate-900 rounded-lg p-3 font-mono text-xs text-emerald-400 flex items-center justify-between gap-2 border border-slate-800">
-            <code>python generate_data.py</code>
-            <button
-              onClick={() => copyCommand('python generate_data.py', 'step2')}
-              className="text-slate-400 hover:text-white transition-colors"
-            >
-              {copiedStep === 'step2' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Step 3 */}
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400 font-bold flex items-center justify-center text-sm mb-3">
-              3
+            <div className="text-slate-400">
+              • Schema Validation: <span className="text-emerald-400 font-bold">Active</span>
             </div>
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Launch Streamlit App
-            </h3>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-4">
-              Launches the wide layout AuditIQ Step 1 Streamlit app in your default browser.
-            </p>
-          </div>
-
-          <div className="bg-slate-900 rounded-lg p-3 font-mono text-xs text-emerald-400 flex items-center justify-between gap-2 border border-slate-800">
-            <code>streamlit run app.py</code>
-            <button
-              onClick={() => copyCommand('streamlit run app.py', 'step3')}
-              className="text-slate-400 hover:text-white transition-colors"
-            >
-              {copiedStep === 'step3' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            </button>
+            <div className="text-slate-400">
+              • IsolationForest ML: <span className="text-emerald-400 font-bold">Active</span>
+            </div>
+            <div className="text-slate-400">
+              • 4 Audit Check Rules: <span className="text-emerald-400 font-bold">Active</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* GitHub Push Instructions */}
-      <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-2xs space-y-4">
-        <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
-          <GitBranch className="w-4 h-4 text-red-600 dark:text-red-400" />
-          Git Repository Initialization Commands
-        </div>
+      {/* Steps List */}
+      <div className="space-y-6">
+        {steps.map((step, idx) => (
+          <div
+            key={idx}
+            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-2xs space-y-4"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  {step.title}
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                  {step.description}
+                </p>
+              </div>
 
-        <div className="bg-slate-900 rounded-xl p-4 font-mono text-xs text-slate-200 space-y-2 border border-slate-800 overflow-x-auto">
-          <div className="flex items-center justify-between text-slate-400 pb-2 border-b border-slate-800 text-[11px]">
-            <span>Terminal Shell Commands</span>
-            <button
-              onClick={() => copyCommand(`git init\ngit add .\ngit commit -m "feat: AuditIQ POC Step 1 - Data Ingestion & Schema Validation"\ngit branch -M main`, 'git')}
-              className="hover:text-white transition-colors flex items-center gap-1"
-            >
-              {copiedStep === 'git' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-              Copy All Git Commands
-            </button>
+              <span className="w-7 h-7 rounded-full bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300 font-bold text-xs flex items-center justify-center shrink-0">
+                {idx + 1}
+              </span>
+            </div>
+
+            {/* Terminal Block */}
+            <div className="bg-slate-900 text-slate-100 rounded-xl p-4 font-mono text-xs border border-slate-800 flex items-center justify-between gap-4 group">
+              <div className="flex items-center gap-3 overflow-x-auto">
+                <Terminal className="w-4 h-4 text-red-400 shrink-0" />
+                <code className="text-red-300 font-bold">{step.command}</code>
+              </div>
+
+              <button
+                onClick={() => copyToClipboard(step.command, idx)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-sans transition-colors shrink-0"
+              >
+                {copiedIndex === idx ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    Copy Command
+                  </>
+                )}
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 italic">
+              💡 {step.explanation}
+            </p>
           </div>
-          <p className="text-emerald-400">git init</p>
-          <p className="text-emerald-400">git add .</p>
-          <p className="text-emerald-400">git commit -m "feat: AuditIQ POC Step 1 - Data Ingestion &amp; Schema Validation"</p>
-          <p className="text-emerald-400">git branch -M main</p>
-          <p className="text-slate-500"># git remote add origin git@github.com:YOUR_USERNAME/AuditIQ-POC.git</p>
-          <p className="text-slate-500"># git push -u origin main</p>
-        </div>
+        ))}
       </div>
     </div>
   );

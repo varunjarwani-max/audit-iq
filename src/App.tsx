@@ -6,11 +6,8 @@ import {
   Play, 
   Code2, 
   Terminal, 
-  CheckCircle2, 
   ShieldAlert, 
-  Sparkles,
-  Download,
-  Github
+  Sparkles
 } from 'lucide-react';
 
 export default function App() {
@@ -32,11 +29,11 @@ export default function App() {
                   AuditIQ
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-950 text-red-300 border border-red-800">
-                  POC Step 1
+                  POC Step 5
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 hidden sm:block">
-                External Audit Automation Platform • Data Ingestion
+                External Audit Automation • Anomaly Detection, Risk Scoring & Colab LLM
               </p>
             </div>
           </div>
@@ -92,7 +89,7 @@ export default function App() {
       {/* Footer */}
       <footer className="bg-slate-900 border-t border-slate-800 py-6 text-center text-xs text-slate-400">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p>© 2026 AuditIQ POC • Step 1: Data Ingestion &amp; Schema Validation</p>
+          <p>© 2026 AuditIQ POC • Step 5: Anomaly Detection, Risk Scoring &amp; Colab LLM Pipeline</p>
           <p className="flex items-center gap-2 font-mono text-[11px] text-slate-500">
             <span>requirements.txt</span> • <span>generate_data.py</span> • <span>app.py</span>
           </p>

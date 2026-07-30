@@ -1,6 +1,6 @@
 {
-  "name": "AuditIQ - POC Step 1",
-  "description": "External audit automation platform POC Step 1: Data Ingestion, synthetic data generation, and schema validation.",
+  "name": "AuditIQ - POC Step 5",
+  "description": "External audit automation platform POC Step 5: Data Ingestion, schema validation, IsolationForest ML outlier detection, rule-based audit checks, weighted risk scoring (1-10), and Google Colab LLM connection.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
