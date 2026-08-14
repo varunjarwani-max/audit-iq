@@ -1,0 +1,6 @@
+﻿Transaction_ID,Amount,Vendor,Department,Approver
+TXN-101,49800.00,Nexus Logistics,Operations,Auto-Approved
+TXN-102,48500.00,Nexus Logistics,Operations,Auto-Approved
+TXN-103,450000.00,CloudScale Networks,IT,Auto-Approved
+TXN-104,200000.00,Advisory Partners,Legal,Manual
+TXN-105,15400.00,Staples & Print Co,Admin,Manual

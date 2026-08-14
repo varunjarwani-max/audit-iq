@@ -1,0 +1,6 @@
+﻿date,amount,vendor,account_code,approved_by,department
+2026-08-01,49500.00,Nexus Logistics,EXP-6010,Auto-Approved,Operations
+2026-08-01,48900.00,Nexus Logistics,EXP-6010,Auto-Approved,Operations
+2026-08-02,350000.00,CloudScale Networks,EXP-5020,Auto-Approved,IT
+2026-08-03,200000.00,Advisory Partners,EXP-7010,Manual,Legal
+2026-08-04,14200.00,Staples & Supplies,EXP-4010,Manual,Admin
