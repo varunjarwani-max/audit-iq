@@ -56,7 +56,7 @@ def get_sample_ledger_df():
     }
     return pd.DataFrame(sample_data)
 
-# --- 4. DATA INGESTION BENCH (NOW SUPPORTS EXCEL & CSV) ---
+# --- 4. DATA INGESTION BENCH (NOW EXPORTS REAL EXCEL FILES) ---
 st.subheader("1. Ingest Transaction Ledger")
 
 col_upload, col_demo = st.columns([2, 1])
@@ -68,13 +68,14 @@ with col_demo:
     st.write("**Instant Evaluator Test Bench:**")
     load_sample = st.button("🚀 Load Pre-built Demo Ledger", use_container_width=True)
     
-    sample_csv_buffer = io.StringIO()
-    get_sample_ledger_df().to_csv(sample_csv_buffer, index=False)
+    # CHANGED: We now create a binary buffer and export as .xlsx so it works on iPads!
+    sample_excel_buffer = io.BytesIO()
+    get_sample_ledger_df().to_excel(sample_excel_buffer, index=False, engine="openpyxl")
     st.download_button(
-        label="📥 Download Sample Template (.CSV)",
-        data=sample_csv_buffer.getvalue(),
-        file_name="AuditIQ_Sample_Ledger.csv",
-        mime="text/csv",
+        label="📥 Download Sample Template (.XLSX)",
+        data=sample_excel_buffer.getvalue(),
+        file_name="AuditIQ_Sample_Ledger.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
 
