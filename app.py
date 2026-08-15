@@ -1,175 +1,297 @@
 import streamlit as st
 import pandas as pd
 import requests
+from datetime import datetime, timezone
+import io
 
-# Set Page Config
-st.set_page_config(
-    page_title="AuditIQ — Anomaly & 5C Generator",
-    page_icon="🛡️",
-    layout="wide"
-)
+# --- PAGE CONFIGURATION ---
+st.set_page_config(page_title="AuditIQ — Autonomous Statutory Auditor", layout="wide")
 
-st.title("🛡️ AuditIQ — Transaction Auditor & 5C AI Generator")
+st.title("🛡️ AuditIQ — Autonomous Statutory AI Auditor")
+st.markdown("Automated Ledger Ingestion • Deterministic Grounding • 24/7 Cloud LLM 5C Workpapers")
 
-# Initialize session state for persisting generated findings across re-runs
+# --- 1. PERSISTENT STATE & CLOUD KEY ---
 if "audit_findings" not in st.session_state:
     st.session_state.audit_findings = {}
+if "sentry_interceptions" not in st.session_state:
+    st.session_state.sentry_interceptions = 0
 
-# 1. Sidebar & Backend Configuration
-with st.sidebar:
-    st.header("⚙️ Backend Engine")
-    backend_mode = st.radio(
-        "Choose AI Engine:",
-        ["Kaggle / Ngrok Tunnel", "Direct Groq API"]
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+if not GROQ_API_KEY:
+    GROQ_API_KEY = st.sidebar.text_input("Enter Groq API Key (gsk_...):", type="password")
+
+KB_VERSION = "AuditIQ-KB v1.2 (ICAI SA / Companies Act 2013)"
+
+# --- 2. DETERMINISTIC STATUTORY KNOWLEDGE BASE ---
+STATUTORY_KNOWLEDGE_BASE = {
+    "split_invoice": (
+        "Internal Financial Controls (IFC) under Section 143(3)(i) of the Companies Act, 2013 "
+        "and ICAI Standard on Auditing (SA) 240 ('The Auditor's Responsibilities Relating to Fraud "
+        "in an Audit of Financial Statements' - Fraud Risk Factors / Threshold Evasion)."
+    ),
+    "high_value_auto_approval": (
+        "Delegation of Financial Powers (DoFP) Framework, ICAI Standard on Auditing (SA) 315 "
+        "('Identifying and Assessing the Risks of Material Misstatement'), "
+        "and Section 143(3)(i) of the Companies Act, 2013 regarding operating effectiveness of internal controls."
+    ),
+    "round_number": (
+        "ICAI Standard on Auditing (SA) 500 ('Audit Evidence') and SA 520 ('Analytical Procedures'), "
+        "mandating substantive testing and corroborative underlying documentation for non-routine disbursements."
+    ),
+    "fallback": (
+        "ICAI Standard on Auditing (SA) 200 ('Overall Objectives of the Independent Auditor') "
+        "and Section 143(3)(i) of the Companies Act, 2013."
+    )
+}
+
+# --- 3. SYNTHETIC SAMPLE LEDGER GENERATOR ---
+def get_sample_ledger_df():
+    sample_data = {
+        "date": ["2026-08-01", "2026-08-02", "2026-08-05", "2026-08-10", "2026-08-12", "2026-08-14"],
+        "vendor": ["Nexus Logistics", "CloudScale Networks", "OfficeDepot Corp", "Apex Infotech", "Tata Power", "Swift Freight"],
+        "amount": [48900.00, 350000.00, 12450.00, 145000.00, 60000.00, 49500.00],
+        "account_code": ["AC-7021", "AC-5011", "AC-1002", "AC-5011", "AC-3004", "AC-7021"],
+        "approved_by": ["Auto-Approved", "Auto-Approved", "Manual", "Auto-Approved", "Manual", "Auto-Approved"],
+        "department": ["Operations", "IT", "Administration", "IT Operations", "Facilities", "Logistics"]
+    }
+    return pd.DataFrame(sample_data)
+
+# --- 4. DATA INGESTION BENCH ---
+st.subheader("1. Ingest Transaction Ledger")
+
+col_upload, col_demo = st.columns([2, 1])
+
+with col_upload:
+    uploaded_file = st.file_uploader("Upload Transaction CSV", type=["csv"])
+
+with col_demo:
+    st.write("**Instant Evaluator Test Bench:**")
+    load_sample = st.button("🚀 Load Pre-built Demo Ledger", use_container_width=True)
+    
+    sample_csv_buffer = io.StringIO()
+    get_sample_ledger_df().to_csv(sample_csv_buffer, index=False)
+    st.download_button(
+        label="📥 Download Sample CSV Template",
+        data=sample_csv_buffer.getvalue(),
+        file_name="AuditIQ_Sample_Ledger.csv",
+        mime="text/csv",
+        use_container_width=True
     )
 
-    if backend_mode == "Kaggle / Ngrok Tunnel":
-        DEFAULT_URL = "https://reflux-jogger-unmatched.ngrok-free.dev"
-        backend_url = st.text_input("Active Kaggle Ngrok Endpoint:", value=DEFAULT_URL)
-    else:
-        groq_api_key = st.secrets.get("GROQ_API_KEY", "")
-        if not groq_api_key:
-            groq_api_key = st.text_input("Groq API Key:", type="password")
-
-    if st.button("🧹 Clear Generated Findings", use_container_width=True):
-        st.session_state.audit_findings = {}
-        st.rerun()
-
-# 2. File Ingestion
-st.subheader("1. Ingest Transaction Ledger")
-uploaded_file = st.file_uploader("Upload CSV file", type=["csv"])
+df = None
+if uploaded_file is not None:
+    df = pd.read_csv(uploaded_file)
+elif load_sample or ("loaded_demo" in st.session_state and st.session_state.loaded_demo):
+    st.session_state.loaded_demo = True
+    df = get_sample_ledger_df()
 
 REQUIRED_COLUMNS = ['date', 'amount', 'vendor', 'account_code', 'approved_by', 'department']
 
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
-
-    # Schema Validation
-    missing_cols = [c for c in REQUIRED_COLUMNS if c not in df.columns]
-    if missing_cols:
-        st.error(f"❌ Schema Validation Error: Missing required columns: {missing_cols}")
+if df is not None:
+    missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
+    if missing:
+        st.error(f"❌ Missing standard audit columns: {missing}")
     else:
-        st.success("✅ Schema Validation Successful! Running Anomaly Detection...")
-
-        # Sanitize numeric data
-        df["amount"] = pd.to_numeric(df["amount"], errors="coerce").fillna(0.0)
-
-        # Rule-based Anomaly Detection Engine
-        def check_anomalies(row):
+        st.success("✅ Ledger Ingested & Schema Verified.")
+        
+        # --- 5. ALGORITHMIC ANOMALY DETECTION ENGINE ---
+        def score_and_triage(row):
             reasons = []
             score = 0
-
-            # Rule 1: High value without explicit manual approval (+3 pts)
+            status = "READY"
+            message = ""
+            
+            if pd.isna(row.get("amount")) or pd.isna(row.get("vendor")):
+                return pd.Series([[], 0, "INSUFFICIENT_DATA", "SCOPE LIMITATION (SA 500): Missing core party or amount data."])
+                
             if row["amount"] > 100000 and str(row["approved_by"]).strip().lower() != "manual":
-                reasons.append("High-Value Transaction lacking explicit manual approval (+3 pts)")
+                reasons.append("High-Value outlay without manual authorization (+3 pts)")
                 score += 3
-
-            # Rule 2: Split invoice near statutory threshold (+3 pts)
+                
             if 45000 <= row["amount"] < 50000:
-                reasons.append("Amount just below ₹50,000 threshold (Potential split invoice) (+3 pts)")
+                reasons.append("Amount structured just below ₹50,000 threshold (+3 pts)")
                 score += 3
-
-            # Rule 3: Large round sum payment (+2 pts)
-            if row["amount"] >= 50000 and (row["amount"] % 10000 == 0):
+                
+            if row["amount"] >= 50000 and row["amount"] % 10000 == 0:
                 reasons.append("Large Round-Number Transaction (+2 pts)")
                 score += 2
+                
+            if score == 0:
+                status = "CLEAN"
+                message = "Conforms to baseline testing parameters."
+                
+            return pd.Series([reasons, min(score, 10), status, message])
 
-            return pd.Series([reasons, min(score, 10)])
-
-        df[["Anomalies", "Risk_Score"]] = df.apply(check_anomalies, axis=1)
-        df["Anomaly_Count"] = df["Anomalies"].apply(len)
-
-        # Summary Metrics
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Transactions", len(df))
-        col2.metric("Flagged Anomalies", len(df[df["Risk_Score"] > 0]))
-        col3.metric("Clean Transactions", len(df[df["Risk_Score"] == 0]))
-
-        # Display Summary Table
-        st.dataframe(
-            df[['date', 'vendor', 'amount', 'department', 'approved_by', 'Risk_Score', 'Anomaly_Count']],
-            use_container_width=True
-        )
-
-        # 3. AI 5C Finding Generation Section
-        flagged_df = df[df["Risk_Score"] > 0]
-
+        df[["Anomalies", "Risk_Score", "Audit_Status", "Status_Message"]] = df.apply(score_and_triage, axis=1)
+        
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Total Transactions", len(df))
+        m2.metric("Flagged Exceptions", len(df[df["Risk_Score"] > 0]))
+        m3.metric("Clean Transactions", len(df[df["Audit_Status"] == "CLEAN"]))
+        m4.metric("Documented Workpapers", len(st.session_state.audit_findings))
+        
+        st.dataframe(df[['date', 'vendor', 'amount', 'department', 'approved_by', 'Risk_Score', 'Audit_Status']], use_container_width=True)
+        
+        # --- 6. 5C WORKPAPER SYNTHESIS ENGINE ---
+        flagged_df = df[(df["Risk_Score"] > 0) | (df["Audit_Status"] == "INSUFFICIENT_DATA")]
+        
         if not flagged_df.empty:
-            st.subheader("🤖 AI 5C Audit Finding Generator")
-
+            st.divider()
+            st.subheader("🤖 Autonomous Big 4 5C Workpaper Findings")
+            
             for idx, row in flagged_df.iterrows():
-                finding_key = f"finding_{idx}"
-                btn_key = f"btn_{idx}"
-
-                with st.expander(f"🤖 Audit Finding: {row['vendor']} — ₹{row['amount']:,.2f} (Risk Score: {row['Risk_Score']}/10)"):
-                    st.write(f"**Department:** {row['department']} | **Date:** {row['date']} | **Approved By:** {row['approved_by']}")
-                    st.write("**Triggered Flags:**")
+                row_key = f"txn_{idx}_{row['vendor']}_{row['amount']}"
+                is_already_audited = row_key in st.session_state.audit_findings
+                
+                if row["Audit_Status"] == "INSUFFICIENT_DATA":
+                    with st.expander(f"⚠️ [SCOPE LIMITATION] Row {idx}", expanded=False):
+                        st.warning(row["Status_Message"])
+                    continue
+                
+                expander_title = (
+                    f"✅ [AUDITED] {row['vendor']} — ₹{row['amount']:,.2f} (Risk: {row['Risk_Score']}/10)"
+                    if is_already_audited else
+                    f"🚩 [PENDING] {row['vendor']} — ₹{row['amount']:,.2f} (Risk: {row['Risk_Score']}/10)"
+                )
+                
+                with st.expander(expander_title, expanded=is_already_audited):
+                    st.write(f"**Department:** {row['department']} | **Date:** {row['date']} | **Approver:** {row['approved_by']}")
                     for a in row["Anomalies"]:
-                        st.warning(f"• {a}")
-
-                    if st.button("Run AI Senior Audit", key=btn_key):
-                        if backend_mode == "Kaggle / Ngrok Tunnel":
-                            if not backend_url:
-                                st.error("Please enter a valid Ngrok backend endpoint.")
-                            else:
-                                target_endpoint = backend_url.rstrip("/") + "/generate_finding"
-                                headers = {
-                                    "ngrok-skip-browser-warning": "true",
-                                    "Content-Type": "application/json"
-                                }
-                                payload = {
-                                    "vendor": str(row["vendor"]),
-                                    "amount": float(row["amount"]),
-                                    "department": str(row["department"]),
-                                    "flagged_reasons": row["Anomalies"]
-                                }
-
-                                with st.spinner("Analyzing ledger finding via Kaggle backend..."):
-                                    try:
-                                        res = requests.post(target_endpoint, json=payload, headers=headers, timeout=90)
-                                        if res.status_code == 200:
-                                            data = res.json()
-                                            finding_text = data.get("finding") or data.get("response") or data.get("audit_finding")
-                                            st.session_state.audit_findings[finding_key] = finding_text
-                                        else:
-                                            st.error(f"Backend returned HTTP {res.status_code}: {res.text}")
-                                    except Exception as e:
-                                        st.error(f"Connection to {target_endpoint} failed: {e}")
-
+                        st.warning(a)
+                        
+                    btn_label = "Re-generate Finding" if is_already_audited else "Generate Formal 5C Finding"
+                    
+                    if st.button(btn_label, key=f"btn_{idx}"):
+                        if not GROQ_API_KEY:
+                            st.error("Please configure your Groq API Key.")
                         else:
-                            # Direct Groq API Mode
-                            if not groq_api_key:
-                                st.error("Please provide a Groq API Key in the sidebar or under Streamlit Secrets.")
-                            else:
-                                from groq import Groq
-                                with st.spinner("Drafting 5C Finding using Groq..."):
-                                    try:
-                                        client = Groq(api_key=groq_api_key)
-                                        prompt_5c = f"""
-                                        You are a Big 4 Statutory Senior Auditor. Produce a strict 5C framework audit finding for the following ledger exception:
-                                        - Vendor: {row['vendor']}
-                                        - Transaction Amount: ₹{row['amount']:,.2f}
-                                        - Department: {row['department']}
-                                        - Approval Type: {row['approved_by']}
-                                        - Triggered Anomalies: {', '.join(row['Anomalies'])}
+                            applied_criteria = []
+                            anomaly_str = str(row['Anomalies'])
+                            if "₹50,000 threshold" in anomaly_str:
+                                applied_criteria.append(STATUTORY_KNOWLEDGE_BASE["split_invoice"])
+                            if "High-Value" in anomaly_str:
+                                applied_criteria.append(STATUTORY_KNOWLEDGE_BASE["high_value_auto_approval"])
+                            if "Round-Number" in anomaly_str:
+                                applied_criteria.append(STATUTORY_KNOWLEDGE_BASE["round_number"])
+                                
+                            criteria_str = "\n- ".join(applied_criteria) if applied_criteria else STATUTORY_KNOWLEDGE_BASE["fallback"]
 
-                                        Format clearly with standard audit sections:
-                                        1. Condition (Factual description of what was identified)
-                                        2. Criteria (Statutory requirement, standard, or internal control policy violated)
-                                        3. Cause (Underlying process failure or operational lapse)
-                                        4. Consequence (Financial impact, compliance penalty, or exposure risk)
-                                        5. Corrective Action (Direct, actionable remediation steps)
-                                        """
+                            prompt = f"""You are a Big 4 Senior Statutory Auditor and Forensic Accounting Specialist.
+Analyze the following flagged ledger transaction and draft a precise, highly professional 5C statutory audit finding.
 
-                                        chat_resp = client.chat.completions.create(
-                                            model="openai/gpt-oss-120b",
-                                            messages=[{"role": "user", "content": prompt_5c}]
-                                        )
-                                        st.session_state.audit_findings[finding_key] = chat_resp.choices[0].message.content
-                                    except Exception as e:
-                                        st.error(f"Groq generation failed: {e}")
+TRANSACTION DETAILS:
+- Vendor: {row['vendor']}
+- Amount: ₹{row['amount']:,.2f}
+- Department: {row['department']}
+- Date: {row['date']}
+- Approver: {row['approved_by']}
+- Detected Anomalies: {', '.join(row['Anomalies'])}
 
-                    # Render cached finding if generated
-                    if finding_key in st.session_state.audit_findings:
-                        st.success("✅ Audit Finding Generated:")
-                        st.markdown(st.session_state.audit_findings[finding_key])
+MANDATORY STATUTORY GROUNDING:
+For the 'Criteria' section, you MUST use ONLY the following verified regulatory standards:
+- {criteria_str}
+
+CRITICAL RULES:
+1. FACTUAL HONESTY: Do not invent, hallucinate, or cite any other section numbers, tax acts, or auditing standards not explicitly provided above.
+2. If data is insufficient to establish a definitive root cause, explicitly state: "Based solely on ledger data, the root cause cannot be definitively determined; physical voucher corroboration required."
+3. ESCALATION: Do not escalate internal control lapses to external "regulatory bodies". Escalate only to Internal Audit, CFO, or the Audit Committee.
+4. RECOMMENDATION: Give specific, actionable remediation targeted to this anomaly (e.g., ERP workflow reconfiguration, retrospective ledger scans). Do not use generic 4-step templates.
+
+OUTPUT FORMAT (Plain text headings with colons):
+Condition: [Factual statement of the specific entry]
+Criteria: [Use the exact standards provided above]
+Cause: [Probable control breakdown, hedged appropriately]
+Consequence: [Calibrated financial and internal control exposure]
+Recommendation: [Specific remediation steps]
+
+Tone: Rigorous, measured, professional Big 4 working paper standard."""
+
+                            with st.spinner("Drafting grounded workpaper via Groq LPU engine..."):
+                                try:
+                                    headers = {
+                                        "Authorization": f"Bearer {GROQ_API_KEY}",
+                                        "Content-Type": "application/json"
+                                    }
+                                    payload = {
+                                        "model": "llama-3.3-70b-versatile",
+                                        "messages": [{"role": "user", "content": prompt}],
+                                        "temperature": 0.1
+                                    }
+                                    
+                                    response = requests.post(
+                                        "https://api.groq.com/openai/v1/chat/completions",
+                                        headers=headers,
+                                        json=payload,
+                                        timeout=30
+                                    )
+                                    
+                                    if response.status_code == 200:
+                                        finding_text = response.json()["choices"][0]["message"]["content"]
+                                        
+                                        banned_terms = ["section 138", "section 40a", "sas 700", "regulatory bodies", "section 37(5)"]
+                                        sentry_flag = False
+                                        for term in banned_terms:
+                                            if term in finding_text.lower():
+                                                sentry_flag = True
+                                                finding_text = finding_text.replace(term, "[Standard Internal Control Framework]")
+                                        
+                                        if sentry_flag:
+                                            st.session_state.sentry_interceptions += 1
+
+                                        timestamp_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                                        
+                                        st.session_state.audit_findings[row_key] = {
+                                            "vendor": row["vendor"],
+                                            "amount": row["amount"],
+                                            "risk_score": row["Risk_Score"],
+                                            "finding": finding_text,
+                                            "timestamp": timestamp_now,
+                                            "sentry_intercepted": sentry_flag
+                                        }
+                                        st.rerun()
+                                    else:
+                                        st.error(f"API Error {response.status_code}: {response.text}")
+                                except Exception as e:
+                                    st.error(f"Connection failed: {e}")
+                    
+                    if is_already_audited:
+                        finding_data = st.session_state.audit_findings[row_key]
+                        st.markdown("---")
+                        st.markdown("### 📄 Recorded Statutory Finding")
+                        
+                        if finding_data.get("sentry_intercepted"):
+                            st.info("🛡️ **AuditIQ Sentry:** Ungrounded citation automatically intercepted and normalized.")
+                            
+                        st.markdown(finding_data["finding"])
+                        st.caption(f"Audit Trail: Generated {finding_data['timestamp']} | Engine: Llama-3.3-70b (Temp 0.1) | {KB_VERSION}")
+
+            # --- 7. EXPORT ENGAGEMENT WORKPAPER PACKAGE ---
+            if st.session_state.audit_findings:
+                st.divider()
+                st.subheader("📑 Final Engagement Workpaper Export")
+                
+                export_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                
+                report_content = f"# AUDIT ENGAGEMENT MEMORANDUM & WORKING PAPERS\n"
+                report_content += f"Generated on: {export_time}\n"
+                report_content += f"Standards Framework: {KB_VERSION}\n"
+                report_content += f"Total Exceptions Documented: {len(st.session_state.audit_findings)}\n"
+                report_content += f"Sentry Interceptions: {st.session_state.sentry_interceptions}\n"
+                report_content += "="*70 + "\n\n"
+                report_content += "> **MANDATORY STATUTORY DISCLAIMER (SA 230 / ICAI Guidelines):**\n"
+                report_content += "> This document is an autonomous draft audit finding generated by AuditIQ for preliminary analytical triage. "
+                report_content += "It does not constitute a certified statutory audit opinion. All findings must be corroborated against primary physical source records and formally signed off by a certified Chartered Accountant prior to report issuance.\n\n"
+                report_content += "="*70 + "\n\n"
+                
+                for k, v in st.session_state.audit_findings.items():
+                    report_content += f"## EXCEPTION: {v['vendor']} | Amount: ₹{v['amount']:,.2f} | Risk Score: {v['risk_score']}/10\n"
+                    report_content += f"*Recorded: {v['timestamp']}*\n\n"
+                    report_content += v["finding"] + "\n\n"
+                    report_content += "-"*70 + "\n\n"
+                    
+                st.download_button(
+                    label="📥 Download Statutory Audit Workpaper Package (Markdown)",
+                    data=report_content,
+                    file_name=f"AuditIQ_Engagement_Workpaper_{datetime.now().strftime('%Y%m%d')}.md",
+                    mime="text/markdown"
+                )
