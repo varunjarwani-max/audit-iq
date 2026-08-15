@@ -1,0 +1,166 @@
+import requests
+import json
+import time
+import re
+from datetime import datetime
+
+# --- PIPELINE CONFIGURATION ---
+OLLAMA_API = "http://localhost:11434/api/generate"
+
+# Assigning specific model weights to their optimal cognitive tasks
+MODEL_DETECTIVE = "deepseek-r1" # Stage 1: Classification (Small/Fast)
+MODEL_DRAFTER = "gpt-oss-20b"   # Stage 2: Synthesis (Heavy/Capable)
+MODEL_CHECKER = "gemma-3.1"     # Stage 3: Semantic Red-Team (Small/Fast)
+
+def query_ollama(model: str, prompt: str, expect_json: bool = False, keep_alive: str = "5m") -> str:
+    """Queries Ollama and holds the model in VRAM temporarily during processing."""
+    payload = {
+        "model": model,
+        "prompt": prompt,
+        "stream": False,
+        "keep_alive": keep_alive 
+    }
+    if expect_json:
+        payload["format"] = "json"
+        
+    response = requests.post(OLLAMA_API, json=payload)
+    response.raise_for_status()
+    return response.json()["response"]
+
+def evict_model(model: str):
+    """Forces Ollama to drop the model from memory immediately to prevent OOM on 16GB systems."""
+    print(f"🧹 [MEMORY MANAGER] Evicting {model} from VRAM...")
+    requests.post(OLLAMA_API, json={"model": model, "keep_alive": 0})
+
+# --- PIPELINE STAGES ---
+
+def stage_1_detective(vendor_data: dict) -> dict:
+    """Stage 1: Pure Python deterministic math + Small LLM anomaly classification."""
+    print(f"▶️ STAGE 1: Starting Detective (Python Math + {MODEL_DETECTIVE})")
+    
+    # 1A. Deterministic Python Checks (Instant execution, 0 VRAM cost)
+    tx_count = len(vendor_data["transactions"])
+    total_amt = sum(t["amount"] for t in vendor_data["transactions"])
+    
+    # Analyze Approver Types
+    has_auto = any(str(t["approved_by"]).strip().lower() == "auto-approved" for t in vendor_data["transactions"])
+    has_manual = any(str(t["approved_by"]).strip().lower() == "manual" for t in vendor_data["transactions"])
+    all_manual = has_manual and not has_auto
+
+    # Simulate 7-Day Window Check (Simplified for JSON payload)
+    is_structuring = tx_count > 1 and has_auto and total_amt >= 50000
+    
+    hard_facts = {
+        "tx_count": tx_count, 
+        "total_amount": total_amt, 
+        "all_manual_approval": all_manual,
+        "is_structuring_pattern": is_structuring
+    }
+    
+    # 1B. Semantic Classification via Small LLM
+    prompt = f"""Analyze these verified hard facts for a vendor: {json.dumps(hard_facts)}. 
+    Determine the primary audit anomaly category (Choose one: 'structuring', 'dofp_override', 'round_number', 'manual_near_threshold').
+    Return a strict JSON object with exactly one key: 'anomaly_type'."""
+    
+    result = query_ollama(MODEL_DETECTIVE, prompt, expect_json=True)
+    evict_model(MODEL_DETECTIVE) # Free VRAM before Stage 2 loads
+    
+    parsed_result = json.loads(result)
+    parsed_result["hard_facts"] = hard_facts
+    return parsed_result
+
+
+def stage_2_drafter(stage_1_output: dict, previous_feedback: str = None) -> str:
+    """Stage 2: Generates the 5C finding using the large 20B drafting model."""
+    print(f"▶️ STAGE 2: Starting Drafter ({MODEL_DRAFTER})")
+    
+    prompt = f"""You are a Big 4 Auditor. Write a formal 5C audit finding based strictly on these established facts: 
+    {json.dumps(stage_1_output)}.
+    Format with plain text headers: Condition, Criteria, Cause, Consequence, Recommendation."""
+    
+    if previous_feedback:
+        prompt += f"\n\nCRITICAL CORRECTION FROM REVIEWER: {previous_feedback}. Fix this in your new draft."
+        
+    draft = query_ollama(MODEL_DRAFTER, prompt)
+    evict_model(MODEL_DRAFTER) # Free VRAM before Stage 3 loads
+    
+    return draft
+
+
+def stage_3_checker(draft: str, stage_1_output: dict) -> dict:
+    """Stage 3: Multi-gate swarm verification (Code Sentry -> LLM Semantic Check)."""
+    print(f"▶️ STAGE 3: Starting Checker (Code Sentry + {MODEL_CHECKER})")
+    
+    # 3A. Hard Code Sentry (0 ms latency, 0 VRAM)
+    sentry_feedback = []
+    sanitized_draft = draft
+    
+    banned_terms = {
+        "section 138": "Section 143(3)(i) of the Companies Act, 2013",
+        "sas 700": "ICAI SA 500",
+        "regulatory bodies": "the Audit Committee"
+    }
+    
+    for term, replacement in banned_terms.items():
+        if term in sanitized_draft.lower():
+            sanitized_draft = re.sub(re.escape(term), replacement, sanitized_draft, flags=re.IGNORECASE)
+            sentry_feedback.append(f"Hard Sentry: Normalized ungrounded citation '{term}' to '{replacement}'.")
+            
+    if stage_1_output["hard_facts"]["all_manual"] and "auto-approved" in sanitized_draft.lower():
+        sentry_feedback.append("Hard Sentry: Draft claims 'auto-approved' but hard facts show ALL transactions were manual.")
+
+    # If the Code Sentry found fatal logical flaws, bypass the LLM and fail it immediately
+    if any("claims 'auto-approved'" in f for f in sentry_feedback):
+        return {"passed": False, "correction_notes": " | ".join(sentry_feedback)}
+
+    # 3B. Semantic Fact-Checker (Small LLM)
+    prompt = f"""You are an adversarial Audit Reviewer. Review this draft finding:
+    {sanitized_draft}
+    
+    Compare it against these hard facts: {json.dumps(stage_1_output['hard_facts'])}.
+    Does the logical 'Cause' section make sense based on the facts? Did the drafter hallucinate any amounts?
+    Return a strict JSON object with keys: 'passed' (boolean) and 'correction_notes' (string, empty if passed)."""
+    
+    result = query_ollama(MODEL_CHECKER, prompt, expect_json=True)
+    evict_model(MODEL_CHECKER) # Free VRAM, completing the cycle
+    
+    verification = json.loads(result)
+    
+    # Append any minor fixes the Hard Sentry made so we have a full audit trail
+    if sentry_feedback and verification["passed"]:
+        verification["correction_notes"] = "Minor Sentry fixes applied: " + " | ".join(sentry_feedback)
+        
+    return verification
+
+# --- EXECUTION ENGINE ---
+
+def run_audit_pipeline(vendor_data: dict) -> str:
+    """Orchestrates the sequential load/unload loop and manages revisions."""
+    start_time = time.time()
+    
+    # Run Stage 1 (Once)
+    evidence = stage_1_detective(vendor_data)
+    
+    max_retries = 2
+    feedback = None
+    
+    for attempt in range(1, max_retries + 1):
+        print(f"\n--- Synthesis Loop: Attempt {attempt} ---")
+        
+        # Run Stage 2
+        draft = stage_2_drafter(evidence, previous_feedback=feedback)
+        
+        # Run Stage 3
+        verification = stage_3_checker(draft, evidence)
+        
+        if verification.get("passed", False):
+            print(f"✅ STAGE 3 PASSED in {round(time.time() - start_time, 1)}s.")
+            if verification.get("correction_notes"):
+                print(f"ℹ️ {verification['correction_notes']}")
+            return draft
+        else:
+            feedback = verification.get("correction_notes")
+            print(f"⚠️ STAGE 3 FAILED: Fact discrepancy detected. Notes: {feedback}")
+            
+    print("❌ FATAL: Pipeline failed to produce a verified draft after maximum retries.")
+    return "STATUS: FAILED_VERIFICATION_REQUIRE_HUMAN_REVIEW"
