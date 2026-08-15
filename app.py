@@ -8,7 +8,7 @@ import io
 st.set_page_config(page_title="AuditIQ — Autonomous Statutory Auditor", layout="wide")
 
 st.title("🛡️ AuditIQ — Autonomous Statutory AI Auditor")
-st.markdown("Automated Ledger Ingestion • Deterministic Grounding • 24/7 Cloud LLM 5C Workpapers")
+st.markdown("Automated Ledger Ingestion • Entity-Level Forensic Aggregation • 24/7 Cloud LLM 5C Workpapers")
 
 # --- 1. PERSISTENT STATE & CLOUD KEY ---
 if "audit_findings" not in st.session_state:
@@ -20,7 +20,7 @@ GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
 if not GROQ_API_KEY:
     GROQ_API_KEY = st.sidebar.text_input("Enter Groq API Key (gsk_...):", type="password")
 
-KB_VERSION = "AuditIQ-KB v1.2 (ICAI SA / Companies Act 2013)"
+KB_VERSION = "AuditIQ-KB v1.3 (Entity Aggregation / ICAI SA 240 / Companies Act 2013)"
 
 # --- 2. DETERMINISTIC STATUTORY KNOWLEDGE BASE ---
 STATUTORY_KNOWLEDGE_BASE = {
@@ -44,19 +44,19 @@ STATUTORY_KNOWLEDGE_BASE = {
     )
 }
 
-# --- 3. SYNTHETIC SAMPLE LEDGER GENERATOR ---
+# --- 3. SYNTHETIC SAMPLE LEDGER GENERATOR (UPDATED FOR STRUCTURING PATTERN) ---
 def get_sample_ledger_df():
     sample_data = {
-        "date": ["2026-08-01", "2026-08-02", "2026-08-05", "2026-08-10", "2026-08-12", "2026-08-14"],
-        "vendor": ["Nexus Logistics", "CloudScale Networks", "OfficeDepot Corp", "Apex Infotech", "Tata Power", "Swift Freight"],
-        "amount": [48900.00, 350000.00, 12450.00, 145000.00, 60000.00, 49500.00],
-        "account_code": ["AC-7021", "AC-5011", "AC-1002", "AC-5011", "AC-3004", "AC-7021"],
-        "approved_by": ["Auto-Approved", "Auto-Approved", "Manual", "Auto-Approved", "Manual", "Auto-Approved"],
-        "department": ["Operations", "IT", "Administration", "IT Operations", "Facilities", "Logistics"]
+        "date": ["2026-08-01", "2026-08-02", "2026-08-05", "2026-08-10", "2026-08-11", "2026-08-12", "2026-08-14"],
+        "vendor": ["Nexus Logistics", "CloudScale Networks", "OfficeDepot Corp", "Swift Freight", "Swift Freight", "Tata Power", "Swift Freight"],
+        "amount": [48900.00, 350000.00, 12450.00, 49500.00, 49000.00, 60000.00, 49890.00],
+        "account_code": ["AC-7021", "AC-5011", "AC-1002", "AC-7021", "AC-7021", "AC-3004", "AC-7021"],
+        "approved_by": ["Auto-Approved", "Auto-Approved", "Manual", "Auto-Approved", "Auto-Approved", "Manual", "Auto-Approved"],
+        "department": ["Operations", "IT", "Administration", "Logistics", "Logistics", "Facilities", "Logistics"]
     }
     return pd.DataFrame(sample_data)
 
-# --- 4. DATA INGESTION BENCH (NOW EXPORTS REAL EXCEL FILES) ---
+# --- 4. DATA INGESTION BENCH ---
 st.subheader("1. Ingest Transaction Ledger")
 
 col_upload, col_demo = st.columns([2, 1])
@@ -68,7 +68,6 @@ with col_demo:
     st.write("**Instant Evaluator Test Bench:**")
     load_sample = st.button("🚀 Load Pre-built Demo Ledger", use_container_width=True)
     
-    # CHANGED: We now create a binary buffer and export as .xlsx so it works on iPads!
     sample_excel_buffer = io.BytesIO()
     get_sample_ledger_df().to_excel(sample_excel_buffer, index=False, engine="openpyxl")
     st.download_button(
@@ -88,7 +87,7 @@ if uploaded_file is not None:
         elif file_extension == "xlsx":
             df = pd.read_excel(uploaded_file, engine="openpyxl")
     except Exception as e:
-        st.error(f"❌ Failed to read file. Please ensure it is a valid ledger. Error: {e}")
+        st.error(f"❌ Failed to read file. Error: {e}")
 
 elif load_sample or ("loaded_demo" in st.session_state and st.session_state.loaded_demo):
     st.session_state.loaded_demo = True
@@ -141,42 +140,69 @@ if df is not None:
         
         st.dataframe(df[['date', 'vendor', 'amount', 'department', 'approved_by', 'Risk_Score', 'Audit_Status']], use_container_width=True)
         
-        # --- 6. 5C WORKPAPER SYNTHESIS ENGINE ---
+        # --- 6. ENTITY-LEVEL 5C WORKPAPER SYNTHESIS ENGINE ---
         flagged_df = df[(df["Risk_Score"] > 0) | (df["Audit_Status"] == "INSUFFICIENT_DATA")]
         
         if not flagged_df.empty:
             st.divider()
-            st.subheader("🤖 Autonomous Big 4 5C Workpaper Findings")
+            st.subheader("🤖 Autonomous Big 4 5C Workpaper Findings (Vendor-Aggregated)")
             
-            for idx, row in flagged_df.iterrows():
-                row_key = f"txn_{idx}_{row['vendor']}_{row['amount']}"
-                is_already_audited = row_key in st.session_state.audit_findings
+            # Relational Grouping: Group by Vendor instead of Row
+            for vendor, vendor_data in flagged_df.groupby("vendor"):
                 
-                if row["Audit_Status"] == "INSUFFICIENT_DATA":
-                    with st.expander(f"⚠️ [SCOPE LIMITATION] Row {idx}", expanded=False):
-                        st.warning(row["Status_Message"])
+                # Check for scope limitation within the vendor group
+                if "INSUFFICIENT_DATA" in vendor_data["Audit_Status"].values:
+                    with st.expander(f"⚠️ [SCOPE LIMITATION] Vendor: {vendor}", expanded=False):
+                        st.warning("One or more transactions for this entity are missing core data. Unable to perform aggregate testing.")
                     continue
                 
+                # Aggregate Entity Metrics
+                txns_count = len(vendor_data)
+                total_amt = vendor_data['amount'].sum()
+                base_max_risk = vendor_data['Risk_Score'].max()
+                
+                # THE FORENSIC PATTERN DETECTOR
+                is_structuring = txns_count > 1 and total_amt >= 50000 and vendor_data['amount'].max() < 50000
+                final_risk_score = 8 if is_structuring else base_max_risk
+                
+                # Consolidate all anomalies
+                all_anomalies = set([a for sublist in vendor_data['Anomalies'] for a in sublist])
+                if is_structuring:
+                    all_anomalies.add(f"STRUCTURING PATTERN: {txns_count} sub-threshold payments totaling ₹{total_amt:,.2f} identified to evade the ₹50,000 manual approval limit.")
+                
+                vendor_key = f"vendor_{vendor}_{total_amt}"
+                is_already_audited = vendor_key in st.session_state.audit_findings
+                
                 expander_title = (
-                    f"✅ [AUDITED] {row['vendor']} — ₹{row['amount']:,.2f} (Risk: {row['Risk_Score']}/10)"
+                    f"✅ [AUDITED] {vendor} — Total: ₹{total_amt:,.2f} across {txns_count} txn(s) (Risk: {final_risk_score}/10)"
                     if is_already_audited else
-                    f"🚩 [PENDING] {row['vendor']} — ₹{row['amount']:,.2f} (Risk: {row['Risk_Score']}/10)"
+                    f"🚩 [PENDING] {vendor} — Total: ₹{total_amt:,.2f} across {txns_count} txn(s) (Risk: {final_risk_score}/10)"
                 )
                 
                 with st.expander(expander_title, expanded=is_already_audited):
-                    st.write(f"**Department:** {row['department']} | **Date:** {row['date']} | **Approver:** {row['approved_by']}")
-                    for a in row["Anomalies"]:
-                        st.warning(a)
+                    # Show individual transactions inside the aggregated view
+                    st.write(f"**Entity Exposure:** ₹{total_amt:,.2f} | **Transactions:** {txns_count}")
+                    txn_details_str = ""
+                    for _, r in vendor_data.iterrows():
+                        st.write(f"- {r['date']} | ₹{r['amount']:,.2f} | Dept: {r['department']} | Approver: {r['approved_by']}")
+                        txn_details_str += f"- {r['date']} | ₹{r['amount']:,.2f} | Dept: {r['department']} | Approver: {r['approved_by']}\n"
+                    
+                    st.markdown("---")
+                    for a in all_anomalies:
+                        if "STRUCTURING" in a:
+                            st.error(f"🚨 {a}")
+                        else:
+                            st.warning(a)
                         
                     btn_label = "Re-generate Finding" if is_already_audited else "Generate Formal 5C Finding"
                     
-                    if st.button(btn_label, key=f"btn_{idx}"):
+                    if st.button(btn_label, key=f"btn_{vendor}"):
                         if not GROQ_API_KEY:
                             st.error("Please configure your Groq API Key.")
                         else:
                             applied_criteria = []
-                            anomaly_str = str(row['Anomalies'])
-                            if "₹50,000 threshold" in anomaly_str:
+                            anomaly_str = str(all_anomalies)
+                            if "STRUCTURING PATTERN" in anomaly_str or "₹50,000 threshold" in anomaly_str:
                                 applied_criteria.append(STATUTORY_KNOWLEDGE_BASE["split_invoice"])
                             if "High-Value" in anomaly_str:
                                 applied_criteria.append(STATUTORY_KNOWLEDGE_BASE["high_value_auto_approval"])
@@ -186,15 +212,18 @@ if df is not None:
                             criteria_str = "\n- ".join(applied_criteria) if applied_criteria else STATUTORY_KNOWLEDGE_BASE["fallback"]
 
                             prompt = f"""You are a Big 4 Senior Statutory Auditor and Forensic Accounting Specialist.
-Analyze the following flagged ledger transaction and draft a precise, highly professional 5C statutory audit finding.
+Analyze the following flagged vendor aggregation and draft a precise, highly professional 5C statutory audit finding.
 
-TRANSACTION DETAILS:
-- Vendor: {row['vendor']}
-- Amount: ₹{row['amount']:,.2f}
-- Department: {row['department']}
-- Date: {row['date']}
-- Approver: {row['approved_by']}
-- Detected Anomalies: {', '.join(row['Anomalies'])}
+VENDOR ENTITY AGGREGATION:
+- Vendor: {vendor}
+- Total Aggregated Amount: ₹{total_amt:,.2f}
+- Transaction Count: {txns_count}
+
+INDIVIDUAL LEDGER ENTRIES:
+{txn_details_str}
+
+DETECTED ANOMALIES & PATTERNS:
+- {chr(10)+'- '.join(all_anomalies)}
 
 MANDATORY STATUTORY GROUNDING:
 For the 'Criteria' section, you MUST use ONLY the following verified regulatory standards:
@@ -202,20 +231,19 @@ For the 'Criteria' section, you MUST use ONLY the following verified regulatory 
 
 CRITICAL RULES:
 1. FACTUAL HONESTY: Do not invent, hallucinate, or cite any other section numbers, tax acts, or auditing standards not explicitly provided above.
-2. If data is insufficient to establish a definitive root cause, explicitly state: "Based solely on ledger data, the root cause cannot be definitively determined; physical voucher corroboration required."
+2. RECOMMENDATION: Give specific, actionable remediation targeted to this anomaly. If a structuring/split-invoice pattern is detected, you MUST recommend implementing a vendor-level rolling-window aggregation rule in the ERP (e.g., flagging any vendor crossing ₹50k cumulatively in a 7-day window). Do not use generic templates.
 3. ESCALATION: Do not escalate internal control lapses to external "regulatory bodies". Escalate only to Internal Audit, CFO, or the Audit Committee.
-4. RECOMMENDATION: Give specific, actionable remediation targeted to this anomaly (e.g., ERP workflow reconfiguration, retrospective ledger scans). Do not use generic 4-step templates.
 
 OUTPUT FORMAT (Plain text headings with colons):
-Condition: [Factual statement of the specific entry]
+Condition: [Factual statement of the specific vendor aggregation and pattern]
 Criteria: [Use the exact standards provided above]
 Cause: [Probable control breakdown, hedged appropriately]
 Consequence: [Calibrated financial and internal control exposure]
-Recommendation: [Specific remediation steps]
+Recommendation: [Specific remediation steps including ERP configurations]
 
 Tone: Rigorous, measured, professional Big 4 working paper standard."""
 
-                            with st.spinner("Drafting grounded workpaper via Groq LPU engine..."):
+                            with st.spinner("Drafting aggregated entity workpaper via Groq LPU engine..."):
                                 try:
                                     headers = {
                                         "Authorization": f"Bearer {GROQ_API_KEY}",
@@ -249,10 +277,10 @@ Tone: Rigorous, measured, professional Big 4 working paper standard."""
 
                                         timestamp_now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
                                         
-                                        st.session_state.audit_findings[row_key] = {
-                                            "vendor": row["vendor"],
-                                            "amount": row["amount"],
-                                            "risk_score": row["Risk_Score"],
+                                        st.session_state.audit_findings[vendor_key] = {
+                                            "vendor": vendor,
+                                            "amount": total_amt,
+                                            "risk_score": final_risk_score,
                                             "finding": finding_text,
                                             "timestamp": timestamp_now,
                                             "sentry_intercepted": sentry_flag
@@ -264,7 +292,7 @@ Tone: Rigorous, measured, professional Big 4 working paper standard."""
                                     st.error(f"Connection failed: {e}")
                     
                     if is_already_audited:
-                        finding_data = st.session_state.audit_findings[row_key]
+                        finding_data = st.session_state.audit_findings[vendor_key]
                         st.markdown("---")
                         st.markdown("### 📄 Recorded Statutory Finding")
                         
@@ -284,7 +312,7 @@ Tone: Rigorous, measured, professional Big 4 working paper standard."""
                 report_content = f"# AUDIT ENGAGEMENT MEMORANDUM & WORKING PAPERS\n"
                 report_content += f"Generated on: {export_time}\n"
                 report_content += f"Standards Framework: {KB_VERSION}\n"
-                report_content += f"Total Exceptions Documented: {len(st.session_state.audit_findings)}\n"
+                report_content += f"Total Entities Documented: {len(st.session_state.audit_findings)}\n"
                 report_content += f"Sentry Interceptions: {st.session_state.sentry_interceptions}\n"
                 report_content += "="*70 + "\n\n"
                 report_content += "> **MANDATORY STATUTORY DISCLAIMER (SA 230 / ICAI Guidelines):**\n"
@@ -293,7 +321,7 @@ Tone: Rigorous, measured, professional Big 4 working paper standard."""
                 report_content += "="*70 + "\n\n"
                 
                 for k, v in st.session_state.audit_findings.items():
-                    report_content += f"## EXCEPTION: {v['vendor']} | Amount: ₹{v['amount']:,.2f} | Risk Score: {v['risk_score']}/10\n"
+                    report_content += f"## EXCEPTION: {v['vendor']} | Aggregate Amount: ₹{v['amount']:,.2f} | Risk Score: {v['risk_score']}/10\n"
                     report_content += f"*Recorded: {v['timestamp']}*\n\n"
                     report_content += v["finding"] + "\n\n"
                     report_content += "-"*70 + "\n\n"
