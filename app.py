@@ -56,13 +56,13 @@ def get_sample_ledger_df():
     }
     return pd.DataFrame(sample_data)
 
-# --- 4. DATA INGESTION BENCH ---
+# --- 4. DATA INGESTION BENCH (NOW SUPPORTS EXCEL & CSV) ---
 st.subheader("1. Ingest Transaction Ledger")
 
 col_upload, col_demo = st.columns([2, 1])
 
 with col_upload:
-    uploaded_file = st.file_uploader("Upload Transaction CSV", type=["csv"])
+    uploaded_file = st.file_uploader("Upload Transaction Ledger", type=["csv", "xlsx"])
 
 with col_demo:
     st.write("**Instant Evaluator Test Bench:**")
@@ -71,7 +71,7 @@ with col_demo:
     sample_csv_buffer = io.StringIO()
     get_sample_ledger_df().to_csv(sample_csv_buffer, index=False)
     st.download_button(
-        label="📥 Download Sample CSV Template",
+        label="📥 Download Sample Template (.CSV)",
         data=sample_csv_buffer.getvalue(),
         file_name="AuditIQ_Sample_Ledger.csv",
         mime="text/csv",
@@ -80,7 +80,15 @@ with col_demo:
 
 df = None
 if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
+    file_extension = uploaded_file.name.split(".")[-1].lower()
+    try:
+        if file_extension == "csv":
+            df = pd.read_csv(uploaded_file)
+        elif file_extension == "xlsx":
+            df = pd.read_excel(uploaded_file, engine="openpyxl")
+    except Exception as e:
+        st.error(f"❌ Failed to read file. Please ensure it is a valid ledger. Error: {e}")
+
 elif load_sample or ("loaded_demo" in st.session_state and st.session_state.loaded_demo):
     st.session_state.loaded_demo = True
     df = get_sample_ledger_df()
