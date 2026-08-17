@@ -77,32 +77,68 @@ STATUTORY_KNOWLEDGE_BASE = {
     }
 }
 
-# --- 3. SAMPLE LEDGER GENERATOR (EXERCISES ALL FORENSIC SCENARIOS) ---
+# --- 3. SAMPLE LEDGER GENERATOR (ADVERSARIAL STRESS TEST) ---
 def get_sample_ledger_df():
     sample_data = {
         "date": [
-            "2026-08-01", "2026-08-03", "2026-08-05", 
-            "2026-08-08", "2026-08-10", "2026-08-12"
+            "2026-08-01", "2026-08-03", "2026-08-06", # Swift Freight (Structuring: 3 in 6 days)
+            "2026-08-01", "2026-08-12", "2026-08-25", # Globex Corp (Safe Decoy: Spread over 24 days)
+            "2026-08-02",                             # Apex Infotech (DoFP Override)
+            "2026-08-04",                             # Zenith Systems (Safe Manual Approval)
+            "2026-08-07",                             # Tata Power (Manual Round Number)
+            "2026-08-06",                             # OfficeDepot Corp (Safe Near-Threshold)
+            "2026-08-08",                             # Missing Vendor Inc (Scope Limitation test)
+            "2026-08-02"                              # Daily Cafe Supplies (Safe Small)
         ],
         "vendor": [
             "Swift Freight", "Swift Freight", "Swift Freight", 
-            "Apex Infotech", "CloudScale Networks", "Sigma Supplies"
+            "Globex Corp", "Globex Corp", "Globex Corp", 
+            "Apex Infotech", 
+            "Zenith Systems", 
+            "Tata Power", 
+            "OfficeDepot Corp", 
+            "Missing Vendor Inc", 
+            "Daily Cafe Supplies"
         ],
         "amount": [
             24000.00, 24000.00, 24000.00, 
-            145000.00, 60000.00, 49800.00
+            22000.00, 22000.00, 22000.00, 
+            145000.00, 
+            120000.00, 
+            60000.00, 
+            49800.00, 
+            None, 
+            4500.00
         ],
         "account_code": [
             "AC-7021", "AC-7021", "AC-7021", 
-            "AC-5011", "AC-5011", "AC-1002"
+            "AC-4011", "AC-4011", "AC-4011", 
+            "AC-5011", 
+            "AC-5011", 
+            "AC-3004", 
+            "AC-1002", 
+            "AC-9000", 
+            "AC-8001"
         ],
         "approved_by": [
             "Auto-Approved", "Auto-Approved", "Auto-Approved", 
-            "Auto-Approved", "Manual", "Manual"
+            "Auto-Approved", "Auto-Approved", "Auto-Approved", 
+            "Auto-Approved", 
+            "Manual", 
+            "Manual", 
+            "Manual", 
+            "Auto-Approved", 
+            "Auto-Approved"
         ],
         "department": [
             "Logistics", "Logistics", "Logistics", 
-            "IT Operations", "Engineering", "Procurement"
+            "Maintenance", "Maintenance", "Maintenance", 
+            "IT Operations", 
+            "IT Operations", 
+            "Facilities", 
+            "Procurement", 
+            "Finance", 
+            "HR"
         ]
     }
     return pd.DataFrame(sample_data)
